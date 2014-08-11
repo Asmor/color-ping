@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Color Ping</title>
+	<style>
+		#ping-canvas {
+			outline: 3px solid black;
+		}
+	</style>
+</head>
+<body>
+	<div>
+		There are orange, green, and purple points hidden below. You can make red, blue, and yellow pings to try and locate them. For example, clicking for a red ping will draw a red circle showing the distance to the nearest orange or purple point. If you click close enough to a point, it will be revealed. Reveal all three points to win! Your score is based on how many pings you used, and you lose more points the more you use the same color of ping.
+	</div>
+	Score: <span id="score-span"></span>
+	<button class="color-button" data-value="red">Red</button>
+	<button class="color-button" data-value="yellow">Yellow</button>
+	<button class="color-button" data-value="blue">Blue</button>
+	<br><br>
+	<canvas id="ping-canvas" height="500" width="500"></canvas>
+	<script>
+
+	var pingCanvas = document.getElementById("ping-canvas"),
+		context = pingCanvas.getContext("2d"),
+		pingColor, orangePoint, purplePoint, greenPoint, found, clicks;
+
+	Array.prototype.slice.call(document.getElementsByClassName("color-button")).forEach(function (el) {
+		el.addEventListener("click", function () {
+			pingColor = this.getAttribute("data-value");
+		}, false);
+	});
+
+	pingCanvas.addEventListener("click", function (evt) {
+		if (!pingColor) {
+			return;
+		}
+		var coords = getCanvasClickCoords(evt);
+
+		clicks[pingColor]++;
+		score();
+
+		lookForWinners(coords);
+		var radius = lookForNearest(coords, pingColor);
+		drawCircle({
+			center: coords,
+			radius: radius,
+			color: pingColor,
+			crosshairs: true,
+		});
+
+		if (found.orange && found.purple && found.green) {
+			alert("You win! Final score: " + score());
+		}
+	}, false);
+
+	init();
+
+	function init() {
+		orangePoint = getRandomPoint(500, 500);
+		purplePoint = getRandomPoint(500, 500);
+		greenPoint = getRandomPoint(500, 500);
+		found = {};
+		clicks = {
+			red: 0,
+			yellow: 0,
+			blue: 0,
+		};
+		score();
+	}
+
+	function distanceBetween(point1, point2) {
+		var deltaXsq = Math.pow(point1.x - point2.x, 2),
+			deltaYsq = Math.pow(point1.y - point2.y, 2);
+
+		return Math.sqrt(deltaXsq + deltaYsq);
+	}
+
+	function drawCircle(args) {
+		context.beginPath();
+		context.arc(args.center.x, args.center.y, args.radius, 0, 2 * Math.PI, false);
+		context.fillStyle = args.color;
+		context.strokeStyle = args.color;
+		context.lineWidth = 3;
+		if (args.fill) {
+			context.fill();
+		}
+		context.stroke();
+		context.closePath();
+		if (args.crosshairs) {
+			context.beginPath();
+			context.lineWidth = 1;
+			context.strokeStyle = args.color;
+			context.moveTo(args.center.x - args.radius, args.center.y);
+			context.lineTo(args.center.x + args.radius, args.center.y);
+			context.moveTo(args.center.x, args.center.y - args.radius);
+			context.lineTo(args.center.x, args.center.y + args.radius);
+			context.stroke();
+			context.closePath();
+		}
+	}
+
+	function getCanvasClickCoords(evt) {
+		var x = evt.pageX,
+			y = evt.pageY,
+			rect = pingCanvas.getBoundingClientRect();
+
+		return {
+			x: x - rect.left,
+			y: y - rect.top,
+		}
+	}
+
+	function getAllDistances(coords)  {
+		return {
+			orange: distanceBetween(coords, orangePoint),
+			purple: distanceBetween(coords, purplePoint),
+			green: distanceBetween(coords, greenPoint),
+		}
+	}
+
+	function getRandomPoint(height, width) {
+		return {
+			x: Math.floor(Math.random() * width),
+			y: Math.floor(Math.random() * height),
+		}
+	}
+
+	function lookForNearest(coords, color) {
+		var distances = getAllDistances(coords);
+
+		if ( color === "red" ) {
+			return Math.min(distances.orange, distances.purple);
+		} else if ( color === "blue" ) {
+			return Math.min(distances.purple, distances.green);
+		} else if ( color === "yellow" ) {
+			return Math.min(distances.orange, distances.green);
+		}
+	}
+
+	function lookForWinners(coords) {
+		var distances = getAllDistances(coords),
+			winningDistance = 20,
+			winners = [];
+
+		if ( distances.orange < winningDistance && ! found.orange ) {
+			found.orange = true;
+			winners.push(orangePoint);
+			drawCircle({
+				center: orangePoint,
+				radius: winningDistance,
+				color: "orange",
+				fill: true,
+			});
+		}
+
+		if ( distances.purple < winningDistance && ! found.purple ) {
+			found.purple = true;
+			winners.push(purplePoint);
+			drawCircle({
+				center: purplePoint,
+				radius: winningDistance,
+				color: "purple",
+				fill: true,
+			});
+		}
+
+		if ( distances.green < winningDistance && ! found.green ) {
+			found.green = true;
+			winners.push(greenPoint);
+			drawCircle({
+				center: greenPoint,
+				radius: winningDistance,
+				color: "green",
+				fill: true,
+			});
+		}
+
+		return winners;
+	}
+
+	function score() {
+		var total = 0;
+		[clicks.red, clicks.blue, clicks.yellow].forEach(function (clicks) {
+			// 2, 5, 9, 14, 20, ...
+			total += clicks * ( clicks + 3 ) / 2;
+		});
+
+		// If we assume a minimum of 1 click of each color, this gives a perfect score of 100
+		total = Math.min(100, 106 - total);
+
+		document.getElementById("score-span").innerHTML = total;
+
+		return total;
+	}
+
+	</script>
+</body>
+</html>
